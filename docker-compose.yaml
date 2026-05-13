@@ -1,0 +1,55 @@
+# =============================================================================
+# orion-v2 — Local Development Stack
+# =============================================================================
+# Usage:
+#   docker compose up -d          # start all services
+#   docker compose down -v        # stop and remove volumes
+#   docker compose logs -f db     # follow postgres logs
+# =============================================================================
+
+name: orion-v2
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL — one cluster, separate databases per service (microservice best
+  # practice: each service owns its schema and cannot query another's tables).
+  # ---------------------------------------------------------------------------
+  db:
+    image: postgres:16-alpine
+    container_name: orion-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-orion}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-orion_secret}
+      # Creates the default database; per-service DBs are created via init scripts.
+      POSTGRES_DB: ${POSTGRES_DB:-orion}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      # Persistent data
+      - postgres_data:/var/lib/postgresql/data
+      # Init scripts — run once on first container start, in filename order.
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-orion} -d ${POSTGRES_DB:-orion}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - orion-net
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  postgres_data:
+    driver: local
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  orion-net:
+    driver: bridge
