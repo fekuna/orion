@@ -14,6 +14,7 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"go.uber.org/zap"
 
+	"github.com/fekuna/orion-v2/pkg/logger"
 	"github.com/fekuna/orion-v2/services/product-service/internal/config"
 )
 
@@ -40,7 +41,8 @@ type Server struct {
 }
 
 // New creates and configures a new Echo server.
-// The provided logger is used for both application events and HTTP access logs.
+// The provided logger is used for application events, access logs, and is
+// injected into every request context via loggerMiddleware.
 func New(cfg *config.Config, log *zap.Logger) *Server {
 	e := echo.New()
 
@@ -49,8 +51,7 @@ func New(cfg *config.Config, log *zap.Logger) *Server {
 	e.HidePort = true
 	e.Debug = cfg.App.Debug
 
-	// Replace Echo's built-in logger with a no-op so Zap is the only
-	// logging path (avoids duplicate output).
+	// Replace Echo's built-in logger with a no-op so Zap is the sole logging path.
 	e.Logger.SetOutput(io.Discard)
 
 	// Register the request validator.
@@ -61,7 +62,7 @@ func New(cfg *config.Config, log *zap.Logger) *Server {
 	// the standard response envelope and logs 5xx errors with request context.
 	e.HTTPErrorHandler = httpErrorHandler(log)
 
-	// --- middleware stack ---
+	// --- middleware stack (order matters) ---
 	e.Use(middleware.RecoverWithConfig(middleware.RecoverConfig{
 		LogErrorFunc: func(c echo.Context, err error, stack []byte) error {
 			log.Error("panic recovered",
@@ -71,8 +72,9 @@ func New(cfg *config.Config, log *zap.Logger) *Server {
 			return nil
 		},
 	}))
-	e.Use(middleware.RequestID())
-	e.Use(zapAccessLogger(log))
+	e.Use(middleware.RequestID())    // 1. generate/propagate X-Request-ID
+	e.Use(loggerMiddleware(log))     // 2. inject enriched logger into request context
+	e.Use(zapAccessLogger(log))      // 3. write access log after handler returns
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{cfg.HTTP.AllowedOrigins},
 		AllowMethods: []string{
@@ -96,13 +98,11 @@ func New(cfg *config.Config, log *zap.Logger) *Server {
 
 // Start begins listening and handles graceful shutdown on OS signals.
 func (s *Server) Start() error {
-	// Configure underlying http.Server timeouts.
 	s.echo.Server.ReadTimeout = readTimeout
 	s.echo.Server.WriteTimeout = writeTimeout
 
 	addr := s.cfg.HTTP.Addr()
 
-	// Start in a goroutine so we can listen for shutdown signals.
 	errCh := make(chan error, 1)
 	go func() {
 		s.log.Info("server starting",
@@ -114,7 +114,6 @@ func (s *Server) Start() error {
 		}
 	}()
 
-	// Block until a signal or a startup error arrives.
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 
@@ -137,13 +136,36 @@ func (s *Server) Start() error {
 }
 
 // Group creates a new Echo router group with an optional prefix and middleware.
-// Use this in main.go to register module routes after server creation.
 func (s *Server) Group(prefix string, m ...echo.MiddlewareFunc) *echo.Group {
 	return s.echo.Group(prefix, m...)
 }
 
+// loggerMiddleware injects a request-scoped logger into each request context.
+// The logger is pre-enriched with request_id, method, and URI so every log
+// call from any layer (handler, usecase) automatically carries these fields —
+// no need to thread *zap.Logger through constructors or function signatures.
+func loggerMiddleware(log *zap.Logger) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			// middleware.RequestID() has already run and set the response header.
+			reqID := c.Response().Header().Get(echo.HeaderXRequestID)
+
+			reqLog := log.With(
+				zap.String("request_id", reqID),
+				zap.String("method", c.Request().Method),
+				zap.String("uri", c.Request().RequestURI),
+			)
+
+			ctx := logger.WithContext(c.Request().Context(), reqLog)
+			c.SetRequest(c.Request().WithContext(ctx))
+
+			return next(c)
+		}
+	}
+}
+
 // zapAccessLogger returns an Echo middleware that writes structured HTTP
-// access log entries using Zap.
+// access log entries using Zap after the handler returns.
 func zapAccessLogger(log *zap.Logger) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {

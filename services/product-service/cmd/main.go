@@ -33,6 +33,10 @@ func main() {
 	}
 	defer zapLog.Sync() //nolint:errcheck
 
+	// Make zapLog the global fallback so logger.FromContext always returns a
+	// real logger even outside an HTTP request (e.g. startup/shutdown logs).
+	zap.ReplaceGlobals(zapLog)
+
 	// 3. Infrastructure — shared external resources via pkg/.
 	ctx := context.Background()
 
@@ -48,7 +52,7 @@ func main() {
 	//    Add new modules here as the service grows.
 	productRepo := product.NewPostgresRepo(db)
 	productUC := product.NewUseCase(productRepo)
-	productHandler := product.NewHandler(productUC, zapLog)
+	productHandler := product.NewHandler(productUC)
 
 	// 5. Server — create and register all routes.
 	srv := server.New(cfg, zapLog)

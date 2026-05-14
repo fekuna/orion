@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/fekuna/orion-v2/pkg/logger"
 	"github.com/fekuna/orion-v2/pkg/response"
 	"github.com/labstack/echo/v4"
 	"go.uber.org/zap"
@@ -12,11 +13,6 @@ import (
 // httpErrorHandler is Echo's centralized error handler.
 // All handlers return echo.NewHTTPError — this function formats
 // them into the standard response envelope.
-//
-// Benefits:
-//   - Error formatting in one place (DRY)
-//   - Request context (ID, method, URI) always present in logs
-//   - Handlers stay thin — just return the right error type
 func httpErrorHandler(log *zap.Logger) echo.HTTPErrorHandler {
 	return func(err error, c echo.Context) {
 		if c.Response().Committed {
@@ -28,12 +24,10 @@ func httpErrorHandler(log *zap.Logger) echo.HTTPErrorHandler {
 			he = &echo.HTTPError{Code: http.StatusInternalServerError, Message: err.Error()}
 		}
 
-		// Log 5xx errors with full request context for correlation.
+		// Log 5xx errors using the context logger so request_id, method, and
+		// URI are automatically included — no need to extract them manually.
 		if he.Code >= http.StatusInternalServerError {
-			log.Error("server error",
-				zap.String("request_id", c.Response().Header().Get(echo.HeaderXRequestID)),
-				zap.String("method", c.Request().Method),
-				zap.String("uri", c.Request().RequestURI),
+			logger.FromContext(c.Request().Context()).Error("internal server error",
 				zap.Int("status", he.Code),
 				zap.Error(err),
 			)

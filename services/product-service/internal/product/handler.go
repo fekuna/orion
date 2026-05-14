@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/fekuna/orion-v2/pkg/logger"
 	"github.com/fekuna/orion-v2/pkg/response"
 	"github.com/fekuna/orion-v2/services/product-service/internal/httputil"
 	"github.com/labstack/echo/v4"
@@ -11,14 +12,15 @@ import (
 )
 
 // Handler handles HTTP requests for the product domain.
+// It holds no *zap.Logger — logging is done via the request-scoped logger
+// injected into every context by the server's loggerMiddleware.
 type Handler struct {
-	uc  UseCase
-	log *zap.Logger
+	uc UseCase
 }
 
 // NewHandler creates a new product HTTP handler.
-func NewHandler(uc UseCase, log *zap.Logger) *Handler {
-	return &Handler{uc: uc, log: log}
+func NewHandler(uc UseCase) *Handler {
+	return &Handler{uc: uc}
 }
 
 // RegisterRoutes mounts all product routes onto the given Echo group.
@@ -39,7 +41,7 @@ func (h *Handler) list(c echo.Context) error {
 
 	products, total, err := h.uc.GetProducts(c.Request().Context(), filter)
 	if err != nil {
-		httputil.LogError(h.log, c, "list products", err)
+		logger.FromContext(c.Request().Context()).Error("list products failed", zap.Error(err))
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
 
@@ -61,7 +63,10 @@ func (h *Handler) getByID(c echo.Context) error {
 		if errors.Is(err, ErrNotFound) {
 			return echo.NewHTTPError(http.StatusNotFound, "product")
 		}
-		httputil.LogError(h.log, c, "get product by id", err, zap.String("product_id", id.String()))
+		logger.FromContext(c.Request().Context()).Error("get product by id failed",
+			zap.String("product_id", id.String()),
+			zap.Error(err),
+		)
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
 
@@ -79,7 +84,7 @@ func (h *Handler) create(c echo.Context) error {
 
 	p, err := h.uc.CreateProduct(c.Request().Context(), req)
 	if err != nil {
-		httputil.LogError(h.log, c, "create product", err)
+		logger.FromContext(c.Request().Context()).Error("create product failed", zap.Error(err))
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
 
@@ -105,7 +110,10 @@ func (h *Handler) update(c echo.Context) error {
 		if errors.Is(err, ErrNotFound) {
 			return echo.NewHTTPError(http.StatusNotFound, "product")
 		}
-		httputil.LogError(h.log, c, "update product", err, zap.String("product_id", id.String()))
+		logger.FromContext(c.Request().Context()).Error("update product failed",
+			zap.String("product_id", id.String()),
+			zap.Error(err),
+		)
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
 
@@ -122,11 +130,12 @@ func (h *Handler) delete(c echo.Context) error {
 		if errors.Is(err, ErrNotFound) {
 			return echo.NewHTTPError(http.StatusNotFound, "product")
 		}
-		httputil.LogError(h.log, c, "delete product", err, zap.String("product_id", id.String()))
+		logger.FromContext(c.Request().Context()).Error("delete product failed",
+			zap.String("product_id", id.String()),
+			zap.Error(err),
+		)
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
 
 	return c.NoContent(http.StatusNoContent)
 }
-
-
