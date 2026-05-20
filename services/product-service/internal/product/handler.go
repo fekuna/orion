@@ -4,9 +4,9 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/fekuna/orion-v2/pkg/logger"
-	"github.com/fekuna/orion-v2/pkg/response"
-	"github.com/fekuna/orion-v2/services/product-service/internal/httputil"
+	"github.com/fekuna/orion/pkg/logger"
+	"github.com/fekuna/orion/pkg/response"
+	"github.com/fekuna/orion/services/product-service/internal/httputil"
 	"github.com/labstack/echo/v4"
 	"go.uber.org/zap"
 )

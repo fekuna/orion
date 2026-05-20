@@ -1,9 +1,9 @@
-module github.com/fekuna/orion-v2/services/product-service
+module github.com/fekuna/orion/services/product-service
 
 go 1.23.0
 
 require (
-	github.com/fekuna/orion-v2/pkg v0.0.0
+	github.com/fekuna/orion/pkg v0.0.0
 	github.com/go-playground/validator/v10 v10.22.1
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.7.4
@@ -54,4 +54,4 @@ require (
 
 // replace is used by CI pipelines that build without go.work.
 // Local development uses go.work (workspace) instead.
-replace github.com/fekuna/orion-v2/pkg => ../../pkg
+replace github.com/fekuna/orion/pkg => ../../pkg

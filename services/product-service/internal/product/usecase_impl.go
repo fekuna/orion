@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/fekuna/orion-v2/pkg/logger"
+	"github.com/fekuna/orion/pkg/logger"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )

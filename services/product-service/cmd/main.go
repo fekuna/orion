@@ -6,11 +6,11 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/fekuna/orion-v2/pkg/logger"
-	"github.com/fekuna/orion-v2/pkg/postgres"
-	"github.com/fekuna/orion-v2/services/product-service/internal/config"
-	"github.com/fekuna/orion-v2/services/product-service/internal/product"
-	"github.com/fekuna/orion-v2/services/product-service/internal/server"
+	"github.com/fekuna/orion/pkg/logger"
+	"github.com/fekuna/orion/pkg/postgres"
+	"github.com/fekuna/orion/services/product-service/internal/config"
+	"github.com/fekuna/orion/services/product-service/internal/product"
+	"github.com/fekuna/orion/services/product-service/internal/server"
 )
 
 func main() {

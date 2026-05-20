@@ -14,8 +14,8 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"go.uber.org/zap"
 
-	"github.com/fekuna/orion-v2/pkg/logger"
-	"github.com/fekuna/orion-v2/services/product-service/internal/config"
+	"github.com/fekuna/orion/pkg/logger"
+	"github.com/fekuna/orion/services/product-service/internal/config"
 )
 
 // customValidator bridges go-playground/validator with Echo's Validator interface.
@@ -72,9 +72,9 @@ func New(cfg *config.Config, log *zap.Logger) *Server {
 			return nil
 		},
 	}))
-	e.Use(middleware.RequestID())    // 1. generate/propagate X-Request-ID
-	e.Use(loggerMiddleware(log))     // 2. inject enriched logger into request context
-	e.Use(zapAccessLogger(log))      // 3. write access log after handler returns
+	e.Use(middleware.RequestID()) // 1. generate/propagate X-Request-ID
+	e.Use(loggerMiddleware(log))  // 2. inject enriched logger into request context
+	e.Use(zapAccessLogger(log))   // 3. write access log after handler returns
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{cfg.HTTP.AllowedOrigins},
 		AllowMethods: []string{

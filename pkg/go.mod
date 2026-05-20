@@ -1,4 +1,4 @@
-module github.com/fekuna/orion-v2/pkg
+module github.com/fekuna/orion/pkg
 
 go 1.23.0
 
